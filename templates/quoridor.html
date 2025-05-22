@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>桌游 Quoridor "步步为营"</title>
+    <script type="text/javascript" src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            font-size: 16px;
+        }
+
+        .main-container {
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            grid-template-rows: auto auto auto auto;
+            gap: 20px;
+            max-width: 1500px;
+            margin: 0 auto;
+        }
+
+        canvas {
+            background-color: antiquewhite;
+            display: block;
+            margin: 20px auto;
+            grid-column: 2;
+            grid-row: 3;
+            max-width: 550px;
+            width: 100%;
+            height: auto;
+        }
+
+        .tip {
+            grid-column: 1 / -1;
+            grid-row: 1;
+            text-align: center;
+            padding: 1em 0;
+        }
+
+        .tip h1 {
+            font-size: 2em;
+            margin: 0;
+        }
+
+        .message {
+            grid-column: 1 / -1;
+            grid-row: 2;
+            text-align: center;
+            padding: 1em;
+            background-color: #f0f0f0;
+            border-radius: 8px;
+            margin: 0 auto 1em auto;
+            max-width: 600px;
+        }
+
+        .rules {
+            grid-column: 1;
+            grid-row: 3;
+            padding: 1em;
+            background-color: #f5f5f5;
+            border-radius: 8px;
+            align-self: start;
+        }
+
+        .states {
+            grid-column: 3;
+            grid-row: 3;
+            padding: 1em;
+            background-color: #f5f5f5;
+            border-radius: 8px;
+            align-self: start;
+        }
+
+        h2 {
+            font-size: 1.5em;
+            margin-top: 0;
+        }
+
+        h3 {
+            font-size: 1.1em;
+            line-height: 1.4;
+        }
+
+        @media screen and (max-width: 1200px) {
+            body {
+                font-size: 14px;
+            }
+            
+            .main-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto;
+            }
+
+            .rules, .states, .tip {
+                grid-column: 1;
+            }
+
+            .message {
+                grid-column: 1;
+                grid-row: 2;
+                margin: 0 0 20px 0;
+            }
+
+            .rules {
+                grid-row: 4;
+            }
+
+            .states {
+                grid-row: 5;
+            }
+
+            canvas {
+                grid-column: 1;
+                grid-row: 3;
+                width: 100%;
+                max-width: 550px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="tip">
+            <h1>桌游 Quoridor "步步为营"</h1>
+        </div>
+
+        <div class="message">
+            <h2 id="message">等待第一位玩家加入...</h2>
+        </div>
+
+        <div class="rules">
+            <h2>规则：<br></h2>
+            <h3>一个9X9的棋盘<br>
+                起始状态：黑方位于棋盘上方中间格子，白方位于棋盘下方的中间格子<br>
+                胜利条件：将己方的棋子，走到对方出发的那一行<br>
+                以下是规则：<br>
+                1、行棋过程中，双方各执10块挡板，挡板用于阻拦对手前进<br>
+                挡板横跨（或竖跨）两个格子，阻挡时不能围个圈把对方或自己堵死，且无法收回<br>
+                2、每一个回合，可以选择控制棋子移动或放置挡板的其中一个操作<br>
+                可以向上下左右四个方向移动，每次移动一格，但不能越过挡板<br>
+                挡板一回合只能放置一块<br>
+                3、如果正在移动棋子，并且棋子下一步正好是对方棋子的位置，则可以再走一步<br>
+                此时，只能行棋不能放置挡板<br></h3>
+        </div>
+
+        <canvas width="550" height="550"></canvas>
+
+        <div class="states">
+            <h2>当前状态<br></h2>
+            <h3 id="state">黑方位置[1,5]，已用障碍物0个<br>白方位置[9,5]，已用障碍物0个<br><br></h3>
+            <h3 id="counts">黑方误操作：0<br>白方误操作：0<br><br></h3>
+            <h3 id="runningtime">本轮操作用时: 00<br></h3>
+            <h3 id="times">黑方超时次数：0<br>白方超时次数：0<br></h3>
+            <h3 id="bothtime">黑方总用时: 00<br>白方总用时: 00<br></h3>
+            <h3 id="totaltime">本局总用时: 00<br></h3>
+            <h2><a href="/quit">重开一局</a></h2>
+        </div>
+    </div>
+
+    <script>
+    var canvas = document.querySelector('canvas');
+    var black_pos = [1, 5], white_pos = [9, 5];
+    var black_blocks_pos, white_blocks_pos;
+    var black_blocks_num = 0, white_blocks_num = 0;
+    var win = 0;
+
+    function get_now_player_and_winner() {
+        $.getJSON('/get_now_player_and_winner', function (data) {
+            if (data.winner != "unknown")
+                $('#message').text("恭喜" + data.winner + "获得胜利");
+            else if(data.now_color == "black" && data.playing=="False")
+                $('#message').text("等待第二位玩家加入");
+            else if (data.now_color == "black")
+                $('#message').text("等待黑方" + data.now_player + "行棋...");
+            else if (data.now_color == "white")
+                $('#message').text("等待白方" + data.now_player + "行棋...");
+        });
+    }
+
+    function get_score() {
+        $.getJSON('/get_score', function (data) {
+            $("#counts").html("黑方误操作：" + data.error_black + "<br>白方误操作：" + data.error_white + "<br>");
+        });
+    }
+
+    function check_lose() {
+        $.getJSON('/check_lose', function (data) {
+            $("#runningtime").html("本轮操作用时: " + data.running_time + "<br>");
+            $("#totaltime").html("本局总用时: " + data.total_time + "<br>");
+            $("#bothtime").html("黑方总用时：" + data.black_time + "<br>白方总用时：" + data.white_time + "<br>");
+            $("#times").html("黑方超时次数：" + data.over_time_black + "<br>白方超时次数：" + data.over_time_white + "<br>");
+        });
+    }
+
+    function get_chessboard() {
+        $.getJSON('/get_chessboard', function (data) {
+            black_pos = data.chessboard.black_pos;
+            white_pos = data.chessboard.white_pos;
+            black_blocks_pos = data.chessboard.black_blocks_pos;
+            white_blocks_pos = data.chessboard.white_blocks_pos;
+            black_blocks_num = parseInt(data.chessboard.black_blocks_num);
+            white_blocks_num = parseInt(data.chessboard.white_blocks_num);
+            $("#state").html(
+                "黑方位置[" + black_pos + "],已用障碍物" + black_blocks_num + "个<br>"
+                + "白方位置[" + white_pos + "],已用障碍物" + white_blocks_num + "个<br>");
+        });
+    }
+
+    function draw() {
+        var context = canvas.getContext('2d');
+        
+        // 设置背景色
+        context.fillStyle = '#FAEBD7';
+        // 使用fillRect方法填充整个canvas
+        context.fillRect(0, 0, canvas.width, canvas.height);
+
+        //画角色当前位置 黑色
+        context.beginPath();
+        context.arc(black_pos[1] * 50 + 25, black_pos[0] * 50 + 25, 20, 0, 2 * Math.PI);
+        context.fillStyle = '#000';
+        context.fill();
+        context.closePath();
+
+        //画角色当前位置 白色
+        context.beginPath();
+        context.arc(white_pos[1] * 50 + 25, white_pos[0] * 50 + 25, 20, 0, 2 * Math.PI);
+        context.fillStyle = '#fff';
+        context.fill();
+        context.closePath();
+
+        //绘制挡板 黑方放置的挡板
+        context.fillStyle = '#777';
+        for (var i = 0; i < black_blocks_num * 2; i++)
+            if (black_blocks_pos[i][2] == 1)
+                context.fillRect(black_blocks_pos[i][1] * 50, black_blocks_pos[i][0] * 50 + 45, 50, 10);
+            else if (black_blocks_pos[i][2] == 0)
+                context.fillRect(black_blocks_pos[i][1] * 50 + 45, black_blocks_pos[i][0] * 50, 10, 50);
+
+        //绘制挡板 白方放置的挡板
+        context.fillStyle = '#aaa';
+        for (var i = 0; i < white_blocks_num * 2; i++)
+            if (white_blocks_pos[i][2] == 1)
+                context.fillRect(white_blocks_pos[i][1] * 50, white_blocks_pos[i][0] * 50 + 45, 50, 10);
+            else if (white_blocks_pos[i][2] == 0)
+                context.fillRect(white_blocks_pos[i][1] * 50 + 45, white_blocks_pos[i][0] * 50, 10, 50);
+
+        //设置每个格子
+        for (let index = 1; index <= 10; index++) {
+            //设置横线
+            context.moveTo(50, 50 * index);
+            context.lineTo(500, 50 * index);
+            context.stroke();
+
+            //设置垂直线
+            context.moveTo(50 * index, 50);
+            context.lineTo(50 * index, 500);
+            context.stroke();
+        }
+    }
+
+    $(document).ready(function () {
+        setInterval(function () {
+            get_now_player_and_winner();
+            get_chessboard();
+            get_score();
+            check_lose();
+            draw();
+        }, 500); // 每0.5秒发起一次请求
+    });
+    </script>
+</body>
+</html>
+
