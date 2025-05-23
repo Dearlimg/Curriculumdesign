@@ -4,7 +4,7 @@ from collections import deque
 
 def wall_single_to_double(wall):
     x, y, d = wall
-    if d == 1:  # 横向l
+    if d == 1:  # 横向
         return ((x, y, 1), (x, y+1, 1))
     else:       # 纵向
         return ((x, y, 0), (x+1, y, 0))
@@ -96,13 +96,15 @@ class GameState:
                 # 横向挡板（d=1）
                 if y < 9:
                     wall = (x, y, 1)
+                    double_wall = wall_single_to_double(wall)
                     if self._is_valid_wall(wall, all_blocks):
-                        walls.append({"type": "put_blocks", "block_position": str(wall_single_to_double(wall))})
+                        walls.append({"type": "put_blocks", "block_position": str(double_wall)})
                 # 纵向挡板（d=0）
                 if x < 9:
                     wall = (x, y, 0)
+                    double_wall = wall_single_to_double(wall)
                     if self._is_valid_wall(wall, all_blocks):
-                        walls.append({"type": "put_blocks", "block_position": str(wall_single_to_double(wall))})
+                        walls.append({"type": "put_blocks", "block_position": str(double_wall)})
         return walls
 
     def _is_valid_position(self, pos: Tuple[int, int]) -> bool:
@@ -120,6 +122,8 @@ class GameState:
 
     def _get_extended_wall_positions(self) -> set:
         extended_positions = set()
+        # extended_positions=set(self.state["black_blocks_pos"] + self.state["white_blocks_pos"])
+
         for block in self.state["black_blocks_pos"] + self.state["white_blocks_pos"]:
             if isinstance(block[0], int):  # 单格
                 extended_positions.add(tuple(block))
@@ -145,21 +149,25 @@ class GameState:
         return False
 
     def _is_valid_wall(self, wall: Tuple, all_blocks: List = None) -> bool:
+        x, y, d = wall
         double_wall = wall_single_to_double(wall)
+        
         # 检查是否已存在
         all_double_blocks = self.state["black_blocks_pos"] + self.state["white_blocks_pos"]
         if double_wall in all_double_blocks:
             return False
-        x, y, d = wall
+        
         # 检查边界
-        if d == 0:
-            if not (1 <= x <= 9 and 1 <= y <= 8):
-                return False
-        else:
+        if d == 0:  # 纵向挡板
             if not (1 <= x <= 8 and 1 <= y <= 9):
                 return False
+        else:  # 横向挡板
+            if not (1 <= x <= 9 and 1 <= y <= 8):
+                return False
+            
         if all_blocks is None:
             all_blocks = self._get_all_blocks()
+        
         # 检查扩展后的挡板是否与已有挡板重叠
         extended_positions = self._get_extended_wall_positions()
         if d == 1:  # 横向挡板
@@ -168,6 +176,7 @@ class GameState:
         else:  # 纵向挡板
             if (x, y, 0) in extended_positions or (x+1, y, 0) in extended_positions:
                 return False
+            
         # 检查是否形成死局
         new_state = copy.deepcopy(self.state)
         new_state[f"{self.player_color}_blocks_pos"] = new_state[f"{self.player_color}_blocks_pos"] + [double_wall]

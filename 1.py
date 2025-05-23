@@ -1,4 +1,3 @@
-
 from client.client import QuoridorClient
 
 

@@ -80,42 +80,99 @@ class Evaluator:
         path = state.find_shortest_path(pos, target_row)
         return len(path) - 1 if path else float('inf')
 
+    def is_valid_wall_placement(self, block):
+        """检查挡板放置是否有效
+        block: ((x1,y1,d1), (x2,y2,d2))
+        返回: bool
+        """
+        (x1, y1, d1), (x2, y2, d2) = block
+        
+        # 检查方向是否一致
+        if d1 != d2:
+            return False
+        
+        # 检查是否是连续的格子
+        if d1 == 1:  # 横向挡板
+            if x1 != x2 or y2 != y1 + 1:
+                return False
+        else:  # 纵向挡板
+            if y1 != y2 or x2 != x1 + 1:
+                return False
+            
+        return True
+
     def find_best_wall_placement(self, state, player_color, opponent_pos):
         wall_moves = state._generate_all_wall_candidates()
         if not wall_moves:
             return None
+        print("可以生成的全部挡板",wall_moves)
         best_wall = None
         best_score = float('-inf')
-        seen = set()
-        extended_positions = state._get_extended_wall_positions()
+        seen = set()  # 用于记录已经检查过的完整挡板位置
+        
+        # 获取当前棋盘上所有已存在的挡板位置
+        existing_walls = set()
+        for wall in state.state.get("walls", []):
+            x, y, d = wall
+            if d == 1:  # 横向挡板
+                existing_walls.add((x, y, 1))
+                existing_walls.add((x, y+1, 1))
+            else:  # 纵向挡板
+                existing_walls.add((x, y, 0))
+                existing_walls.add((x+1, y, 0))
+        print("当前棋盘上的挡板位置:", existing_walls)
         
         for wall_move in wall_moves:
             block = eval(wall_move["block_position"])
-            wall_tuple = (block[0][0], block[0][1], block[0][2])
-            if wall_tuple in seen:
+            
+            # 如果是黑棋，先进行坐标转换
+            if player_color == "black":
+                block = ((block[0][0] - 1, block[0][1], block[0][2]), 
+                        (block[1][0] - 1, block[1][1], block[1][2]))
+            
+            # 检查挡板放置是否有效
+            if not self.is_valid_wall_placement(block):
+                print("无效的挡板位置:", block)
                 continue
-            seen.add(wall_tuple)
+            
+            # 检查是否已经放置过这个挡板
+            block1, block2 = block
+            wall_key = (block1[0], block1[1], block1[2], block2[0], block2[1], block2[2])
+            if wall_key in seen:
+                continue
+            seen.add(wall_key)
+            
+            # 严格检查是否与已有挡板重叠
+            x1, y1, d1 = block1
+            x2, y2, d2 = block2
+            
+            # 检查第一个格子
+            if (x1, y1, d1) in existing_walls:
+                print(f"挡板位置 {block} 的第一个格子已存在")
+                continue
+            
+            # 检查第二个格子
+            if (x2, y2, d2) in existing_walls:
+                print(f"挡板位置 {block} 的第二个格子已存在")
+                continue
             
             # 检查扩展后的挡板是否与已有挡板重叠
-            x, y, d = wall_tuple
-            if d == 1:  # 横向挡板
-                if (x, y, 1) in extended_positions or (x, y+1, 1) in extended_positions:
+            extended_positions = state._get_extended_wall_positions()
+            if d1 == 1:  # 横向挡板
+                if (x1, y1, 1) in extended_positions or (x1, y1+1, 1) in extended_positions:
+                    print(f"挡板位置 {block} 与扩展位置重叠")
                     continue
             else:  # 纵向挡板
-                if (x, y, 0) in extended_positions or (x+1, y, 0) in extended_positions:
+                if (x1, y1, 0) in extended_positions or (x1+1, y1, 0) in extended_positions:
+                    print(f"挡板位置 {block} 与扩展位置重叠")
                     continue
-                    
-            score = self.evaluate_wall(state, wall_tuple, player_color, opponent_pos)
+                
+            score = self.evaluate_wall(state, (x1, y1, d1), player_color, opponent_pos)
             if score > best_score:
                 best_score = score
-                best_wall = wall_move
+                best_wall = {"type": "put_blocks", "block_position": str(block)}
                 
         if best_score > 0 and best_wall is not None:
-            # 如果是白棋，放置时x坐标-1
-            if player_color == "black":
-                block = eval(best_wall["block_position"])
-                new_block = ((block[0][0] - 1, block[0][1], 1), (block[1][0] - 1, block[1][1], 1))
-                return {"type": "put_blocks", "block_position": str(new_block)}
             return best_wall
         return None
 
