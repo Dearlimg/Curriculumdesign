@@ -1,3 +1,5 @@
+import copy
+
 class Quoridor():
     def __init__(self):
         self.player_white = {'name': '', 'pwd': ''}
@@ -50,12 +52,15 @@ class Quoridor():
 
     def put_blocks(self, block_position):
         block_position = eval(block_position)
+        print("put_blocks收到挡板：", block_position)
+        print("当前棋盘挡板：", self.chess_board['black_blocks_pos'])
         if self.now_player['color'] == 'black':
             self.chess_board['black_blocks_num'] += 1
             self.chess_board['black_blocks_pos'].extend(block_position)
         else:
             self.chess_board['white_blocks_num'] += 1
             self.chess_board['white_blocks_pos'].extend(block_position)
+        print("渲染前棋盘挡板：", self.chess_board['black_blocks_pos'])
 
     def play(self, request):
         if request.form['type'] == 'move_chess':
@@ -105,12 +110,16 @@ class Quoridor():
         score = opponent_path_increase * 5 - my_path_increase * 2
 
         # 优先考虑直接阻挡对手最短路径的挡板
+        in_path = False
         if len(opponent_path_before) >= 2:
             for i in range(len(opponent_path_before) - 1):
                 p1, p2 = opponent_path_before[i], opponent_path_before[i+1]
                 if self._is_wall_between_positions(wall, p1, p2):
-                    score += 20  # 大幅加分
+                    score += 20
+                    in_path = True
                     break
+        if not in_path:
+            score -= 15  # 不在路径上大幅降分
 
         # 挡板距离对手越近分数越高
         wx, wy, _ = wall
@@ -130,3 +139,33 @@ class Quoridor():
             score -= 10
         
         return score
+
+    def find_best_wall_placement(self, state, player_color, opponent_pos):
+        wall_moves = state._generate_all_wall_candidates()
+        best_wall = None
+        max_opponent_path = -1
+        min_my_path_increase = float('inf')
+        current_pos = tuple(state.state[f"{player_color}_pos"])
+        target_row = 9 if player_color == "black" else 1
+        opponent_target = 1 if player_color == "black" else 9
+        my_path_before = state.find_shortest_path(current_pos, target_row)
+        opponent_path_before = state.find_shortest_path(opponent_pos, opponent_target)
+
+        for wall_move in wall_moves:
+            block = eval(wall_move["block_position"])
+            if not self.is_valid_wall_placement(block):
+                continue
+            new_state = copy.deepcopy(state)
+            wall_move_sim = {"type": "put_blocks", "block_position": str(block)}
+            new_state = state.apply_move(wall_move_sim)
+            my_path_after = new_state.find_shortest_path(current_pos, target_row)
+            opponent_path_after = new_state.find_shortest_path(opponent_pos, opponent_target)
+            if not my_path_after or not opponent_path_after:
+                continue
+            opponent_path_len = len(opponent_path_after)
+            my_path_increase = len(my_path_after) - len(my_path_before)
+            if opponent_path_len > max_opponent_path or (opponent_path_len == max_opponent_path and my_path_increase < min_my_path_increase):
+                max_opponent_path = opponent_path_len
+                min_my_path_increase = my_path_increase
+                best_wall = wall_move
+        return best_wall
