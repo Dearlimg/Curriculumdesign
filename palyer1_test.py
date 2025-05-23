@@ -47,10 +47,10 @@ if __name__ == '__main__':
     # 获得棋盘信息
     chessboard = get_chessboard(url)
 
-    # chessdata = {'type': 'move_chess', 'pos': '(8,5)', 'move_again': 'False'}
+    chessdata = {'type': 'move_chess', 'pos': '(4,4)', 'move_again': 'False'}
     # # 当type为move_chess时，进行移动棋子操作
     # # 当且仅当移动的目的位置是对方棋子位置，可以再次移动，move_again为True，否则为False
     # # pos为最终的棋子位置
-    chessdata = {'type': 'put_blocks', 'block_position': '((3, 5, 1), (3, 6, 1))'}
+    # chessdata = {'type': 'put_blocks', 'block_position': '((6, 7, 1), (6, 8, 1))'}
     # # 当type为put_blocks时，在block_position中填入两格挡板的位置，挡板只能是横放或竖放，占据1*2或2*1格,最后一个1表示横向的挡板，纵向挡板为0
     play_chess(url, userdata, chessdata)
