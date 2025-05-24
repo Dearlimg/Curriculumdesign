@@ -35,9 +35,41 @@ class Evaluator:
                 opponent_distance = len(opponent_path) - 1
                 print("双方最短路径:", my_path, opponent_path)
                 print("距离差:", my_distance, opponent_distance)
-                # 只要对手距离目标更近或很近就考虑放挡板
-                if (opponent_distance < my_distance) or (opponent_distance <= 3):
-                    should_place_wall = True
+                
+                # 判断是否应该放置挡板
+                game_progress = max(my_distance, opponent_distance)
+                distance_diff = abs(my_distance - opponent_distance)
+                
+                # 检查是否在游戏初期
+                is_early_game = game_progress == 0  # 游戏进行不到4步时认为是初期
+                
+                if not is_early_game:  # 只有在非游戏初期才考虑放置挡板
+                    # 1. 对手领先或即将到达终点
+                    if opponent_distance < my_distance or opponent_distance <= 5:
+                        should_place_wall = True
+                        print("决定放置挡板：对手领先或即将到达终点")
+                    
+                    # 2. 双方步数接近，且游戏进行到一定阶段
+                    elif distance_diff <= 2 and game_progress >= 3 and remaining_walls >= 2:
+                        should_place_wall = True
+                        print("决定放置挡板：双方步数接近，且游戏已进行一定阶段")
+                    
+                    # 3. 剩余挡板较多，且游戏进行到一定阶段
+                    elif remaining_walls >= 4 and game_progress >= 4:
+                        should_place_wall = True
+                        print("决定放置挡板：剩余挡板较多，且游戏已进行一定阶段")
+                    
+                    # 4. 对手即将到达终点
+                    elif opponent_distance <= 4 and remaining_walls >= 2:
+                        should_place_wall = True
+                        print("决定放置挡板：对手即将到达终点")
+                    
+                    # 5. 自己领先较多，且剩余挡板充足
+                    elif my_distance < opponent_distance - 2 and remaining_walls >= 3:
+                        should_place_wall = True
+                        print("决定放置挡板：自己领先较多，且剩余挡板充足")
+                else:
+                    print("游戏初期，优先移动棋子")
         print("是否放置挡板", should_place_wall)
 
         # 4. 如果决定放置挡板，寻找最佳挡板位置
@@ -140,25 +172,105 @@ class Evaluator:
         current_pos = tuple(state.state[f"{player_color}_pos"])
         target_row = 9 if player_color == "black" else 1
         opponent_target = 1 if player_color == "black" else 9
-        my_path_before = state.find_shortest_path(current_pos, target_row)
-        opponent_path_before = state.find_shortest_path(opponent_pos, opponent_target)
+        
+        # 获取所有可能的最短路径
+        my_paths_before = state.find_all_shortest_paths(current_pos, target_row)
+        opponent_paths_before = state.find_all_shortest_paths(opponent_pos, opponent_target)
+        
+        if not my_paths_before or not opponent_paths_before:
+            return None
+            
+        my_path_before = my_paths_before[0]  # 使用任意一条最短路径作为参考
+        opponent_path_before = opponent_paths_before[0]
+
+        # 最高级策略：对手路径增加远大于我方路径增加（差值>=3）
+        best_advantage_wall = None
+        max_path_difference = -1
+        max_blocked_paths = 0  # 记录能阻挡的最短路径数量
+        
+        for wall_move in wall_moves:
+            try:
+                block = eval(wall_move["block_position"])
+                if not isinstance(block, tuple) or len(block) != 2:
+                    continue
+                    
+                if not self.is_valid_wall_placement(block, state):
+                    continue
+                    
+                new_state = state.apply_move({"type": "put_blocks", "block_position": str(block)})
+                
+                # 获取放置挡板后的所有最短路径
+                my_paths_after = new_state.find_all_shortest_paths(current_pos, target_row)
+                opponent_paths_after = new_state.find_all_shortest_paths(opponent_pos, opponent_target)
+                
+                if not my_paths_after or not opponent_paths_after:
+                    continue
+                
+                # 计算路径变化（使用最短路径的长度）
+                my_path_increase = len(my_paths_after[0]) - len(my_path_before)
+                opponent_path_increase = len(opponent_paths_after[0]) - len(opponent_path_before)
+                path_difference = opponent_path_increase - my_path_increase
+                
+                # 计算这个挡板能阻挡多少条原始最短路径
+                blocked_paths = 0
+                for path in opponent_paths_before:
+                    if self._is_path_blocked_by_wall(path, block):
+                        blocked_paths += 1
+                
+                # 如果对手路径增加比我们多3步以上，记录这个位置
+                if path_difference >= 3:
+                    print(f"找到优势位置：对手增加{opponent_path_increase}步，我方增加{my_path_increase}步，差值{path_difference}，阻挡{blocked_paths}条最短路径")
+                    
+                    # 优先选择能阻挡更多最短路径的位置
+                    if blocked_paths > max_blocked_paths or \
+                       (blocked_paths == max_blocked_paths and path_difference > max_path_difference):
+                        max_blocked_paths = blocked_paths
+                        max_path_difference = path_difference
+                        best_advantage_wall = wall_move
+            except Exception as e:
+                print(f"处理挡板时出错: {str(e)}")
+                continue
+
+        # 如果找到了优势位置，直接返回
+        if best_advantage_wall is not None:
+            print(f"选择最高级策略：最大路径差值{max_path_difference}，阻挡{max_blocked_paths}条最短路径")
+            return best_advantage_wall
 
         # 第一优先级：自己路径不变，对手路径变长
         for wall_move in wall_moves:
-            block = eval(wall_move["block_position"])
-            if not self.is_valid_wall_placement(block, state):
+            try:
+                block = eval(wall_move["block_position"])
+                if not isinstance(block, tuple) or len(block) != 2:
+                    continue
+                    
+                if not self.is_valid_wall_placement(block, state):
+                    continue
+                    
+                new_state = state.apply_move({"type": "put_blocks", "block_position": str(block)})
+                my_paths_after = new_state.find_all_shortest_paths(current_pos, target_row)
+                opponent_paths_after = new_state.find_all_shortest_paths(opponent_pos, opponent_target)
+                
+                if not my_paths_after or not opponent_paths_after:
+                    continue
+                
+                my_path_increase = len(my_paths_after[0]) - len(my_path_before)
+                opponent_path_increase = len(opponent_paths_after[0]) - len(opponent_path_before)
+                
+                if opponent_path_increase > 0 and my_path_increase == 0:
+                    # 计算这个挡板能阻挡多少条原始最短路径
+                    blocked_paths = 0
+                    for path in opponent_paths_before:
+                        if self._is_path_blocked_by_wall(path, block):
+                            blocked_paths += 1
+                            
+                    if blocked_paths > max_blocked_paths or \
+                       (blocked_paths == max_blocked_paths and len(opponent_paths_after[0]) > max_opponent_path):
+                        max_blocked_paths = blocked_paths
+                        max_opponent_path = len(opponent_paths_after[0])
+                        best_wall = wall_move
+            except Exception as e:
+                print(f"处理挡板时出错: {str(e)}")
                 continue
-            new_state = state.apply_move({"type": "put_blocks", "block_position": str(block)})
-            my_path_after = new_state.find_shortest_path(current_pos, target_row)
-            opponent_path_after = new_state.find_shortest_path(opponent_pos, opponent_target)
-            if not my_path_after or not opponent_path_after:
-                continue  # 不允许堵死
-            my_path_increase = len(my_path_after) - len(my_path_before)
-            opponent_path_increase = len(opponent_path_after) - len(opponent_path_before)
-            if opponent_path_increase > 0 and my_path_increase == 0:
-                if len(opponent_path_after) > max_opponent_path:
-                    max_opponent_path = len(opponent_path_after)
-                    best_wall = wall_move
 
         if best_wall is not None:
             return best_wall
@@ -166,25 +278,55 @@ class Evaluator:
         # 第二优先级：对手路径变长，自己路径变长最少
         max_opponent_path = -1
         min_my_path_increase = float('inf')
+        max_blocked_paths = 0
+        
         for wall_move in wall_moves:
-            block = eval(wall_move["block_position"])
-            if not self.is_valid_wall_placement(block, state):
+            try:
+                block = eval(wall_move["block_position"])
+                if not isinstance(block, tuple) or len(block) != 2:
+                    continue
+                    
+                if not self.is_valid_wall_placement(block, state):
+                    continue
+                    
+                new_state = state.apply_move({"type": "put_blocks", "block_position": str(block)})
+                my_paths_after = new_state.find_all_shortest_paths(current_pos, target_row)
+                opponent_paths_after = new_state.find_all_shortest_paths(opponent_pos, opponent_target)
+                
+                if not my_paths_after or not opponent_paths_after:
+                    continue
+                
+                my_path_increase = len(my_paths_after[0]) - len(my_path_before)
+                opponent_path_increase = len(opponent_paths_after[0]) - len(opponent_path_before)
+                
+                if opponent_path_increase > 0:
+                    # 计算这个挡板能阻挡多少条原始最短路径
+                    blocked_paths = 0
+                    for path in opponent_paths_before:
+                        if self._is_path_blocked_by_wall(path, block):
+                            blocked_paths += 1
+                            
+                    if blocked_paths > max_blocked_paths or \
+                       (blocked_paths == max_blocked_paths and 
+                        (len(opponent_paths_after[0]) > max_opponent_path or
+                         (len(opponent_paths_after[0]) == max_opponent_path and my_path_increase < min_my_path_increase))):
+                        max_blocked_paths = blocked_paths
+                        max_opponent_path = len(opponent_paths_after[0])
+                        min_my_path_increase = my_path_increase
+                        best_wall = wall_move
+            except Exception as e:
+                print(f"处理挡板时出错: {str(e)}")
                 continue
-            new_state = state.apply_move({"type": "put_blocks", "block_position": str(block)})
-            my_path_after = new_state.find_shortest_path(current_pos, target_row)
-            opponent_path_after = new_state.find_shortest_path(opponent_pos, opponent_target)
-            if not my_path_after or not opponent_path_after:
-                continue
-            my_path_increase = len(my_path_after) - len(my_path_before)
-            opponent_path_increase = len(opponent_path_after) - len(opponent_path_before)
-            if opponent_path_increase > 0:
-                if (len(opponent_path_after) > max_opponent_path or
-                    (len(opponent_path_after) == max_opponent_path and my_path_increase < min_my_path_increase)):
-                    max_opponent_path = len(opponent_path_after)
-                    min_my_path_increase = my_path_increase
-                    best_wall = wall_move
 
         return best_wall
+
+    def _is_path_blocked_by_wall(self, path, wall):
+        """检查挡板是否阻挡了给定路径"""
+        for i in range(len(path) - 1):
+            p1, p2 = path[i], path[i+1]
+            if self._is_wall_between_positions(wall, p1, p2):
+                return True
+        return False
 
     def evaluate_wall(self, state, wall, player_color, opponent_pos):
         opponent_color = "white" if player_color == "black" else "black"
@@ -266,15 +408,30 @@ class Evaluator:
         return score
 
     def _is_wall_between_positions(self, wall, pos1, pos2):
+        """检查挡板是否在两个位置之间"""
         x1, y1 = pos1
         x2, y2 = pos2
-        wx, wy, wd = wall
-        # 水平移动
-        if x1 == x2 and abs(y2 - y1) == 1:
-            if wd == 1 and wx == x1 and wy == min(y1, y2):
-                return True
-        # 垂直移动
-        elif y1 == y2 and abs(x2 - x1) == 1:
-            if wd == 0 and wy == y1 and wx == min(x1, x2):
-                return True
-        return False
+        
+        # 解包挡板数据
+        try:
+            if isinstance(wall, tuple) and len(wall) == 2:
+                (wx1, wy1, wd1), (wx2, wy2, wd2) = wall
+                # 使用第一个挡板段的方向
+                wd = wd1
+                wx = wx1
+                wy = wy1
+            else:
+                wx, wy, wd = wall
+                
+            # 水平移动
+            if x1 == x2 and abs(y2 - y1) == 1:
+                if wd == 1 and wx == x1 and wy == min(y1, y2):
+                    return True
+            # 垂直移动
+            elif y1 == y2 and abs(x2 - x1) == 1:
+                if wd == 0 and wy == y1 and wx == min(x1, x2):
+                    return True
+            return False
+        except Exception as e:
+            print(f"挡板数据格式错误: {wall}, 错误: {str(e)}")
+            return False

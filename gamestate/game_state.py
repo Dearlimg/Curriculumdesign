@@ -79,14 +79,16 @@ class GameState:
             p1, p2 = path[i], path[i+1]
             if p1[0] == p2[0]:  # 水平移动
                 y = min(p1[1], p2[1])
-                walls.append(((p1[0], y, 0), (p1[0], y+1, 0)))  # 横向挡板
+                wall = (p1[0], y, 0)  # 纵向挡板
+                if self._is_valid_wall(wall):
+                    walls.append({"type": "put_blocks", "block_position": str(wall_single_to_double(wall))})
             else:  # 垂直移动
                 x = min(p1[0], p2[0])
-                walls.append(((x, p1[1], 1), (x+1, p1[1], 1)))  # 纵向挡板
+                wall = (x, p1[1], 1)  # 横向挡板
+                if self._is_valid_wall(wall):
+                    walls.append({"type": "put_blocks", "block_position": str(wall_single_to_double(wall))})
 
-        # 过滤无效位置并转换为字典
-        return [{"type": "put_blocks", "block_position": str(w)}
-                for w in walls if self._is_valid_wall(w)]
+        return walls
 
     def _generate_all_wall_candidates(self) -> List[Dict]:
         walls = []
@@ -193,6 +195,8 @@ class GameState:
         return (self.state["black_pos"][0] == 9 or
                 self.state["white_pos"][0] == 1)
 
+
+    # bfs
     def find_shortest_path(self, start: Tuple[int, int], target_row: int) -> List[Tuple[int, int]]:
         queue = deque([(start, [start])])
         visited = set([start])
@@ -207,6 +211,42 @@ class GameState:
                     visited.add(new_pos)
                     queue.append((new_pos, path + [new_pos]))
         return []
+
+    def find_all_shortest_paths(self, start: Tuple[int, int], target_row: int) -> List[List[Tuple[int, int]]]:
+        """查找所有可能的最短路径"""
+        # 首先找到一条最短路径来确定最短长度
+        first_path = self.find_shortest_path(start, target_row)
+        if not first_path:
+            return []
+        shortest_length = len(first_path)
+        
+        # 使用BFS找到所有最短路径
+        all_paths = []
+        queue = deque([(start, [start])])
+        visited = set([start])
+        
+        while queue:
+            current, path = queue.popleft()
+            
+            # 如果当前路径长度已经超过最短长度，跳过
+            if len(path) > shortest_length:
+                continue
+                
+            if current[0] == target_row:
+                if len(path) == shortest_length:
+                    all_paths.append(path)
+                continue
+                
+            # 按照右、左、下、上的顺序探索
+            for dx, dy in [(0,1),(0,-1),(1,0),(-1,0)]:
+                new_pos = (current[0]+dx, current[1]+dy)
+                if (self._is_valid_position(new_pos) and 
+                    new_pos not in visited and 
+                    not self._is_blocked(current, new_pos)):
+                    visited.add(new_pos)
+                    queue.append((new_pos, path + [new_pos]))
+        
+        return all_paths
 
     def apply_move(self, move: Dict) -> 'GameState':
         new_state = copy.deepcopy(self.state)
@@ -250,13 +290,13 @@ class GameState:
     def _is_wall_between_positions(self, wall, pos1, pos2):
         x1, y1 = pos1
         x2, y2 = pos2
-        wx, wy, wd = wall
+        (wx1, wy1, wd1), (wx2, wy2, wd2) = wall
         # 水平移动
         if x1 == x2 and abs(y2 - y1) == 1:
-            if wd == 0 and wx == x1 and wy == min(y1, y2):
+            if wd1 == 0 and wx1 == x1 and wy1 == min(y1, y2):
                 return True
         # 垂直移动
         elif y1 == y2 and abs(x2 - x1) == 1:
-            if wd == 1 and wy == y1 and wx == min(x1, x2):
+            if wd1 == 1 and wy1 == y1 and wx1 == min(x1, x2):
                 return True
         return False 
