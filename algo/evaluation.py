@@ -4,6 +4,7 @@ import copy
 class Evaluator:
     def __init__(self):
         self.directions = [(0, 1), (0, -1), (1, 0), (-1, 0)]  # 右、左、下、上
+        self.move_count = 0  # 添加操作计数器
 
     def get_best_move(self, state, player_color):
         """获取最佳移动"""
@@ -16,6 +17,7 @@ class Evaluator:
         my_path = state.find_shortest_path(current_pos, target_row)
         if my_path and len(my_path) == 2:
             print("只差一步到终点，直接前进", my_path[1])
+            self.move_count += 1
             return {"type": "move_chess", "pos": str(my_path[1])}
 
         # 2. 获取所有可能的移动
@@ -40,42 +42,47 @@ class Evaluator:
                 game_progress = max(my_distance, opponent_distance)
                 distance_diff = abs(my_distance - opponent_distance)
                 
-                # 检查是否在游戏初期
-                is_early_game = game_progress == 0  # 游戏进行不到4步时认为是初期
+                # 检查是否在游戏初期（前一步）
+                is_early_game = self.move_count < 1
                 
                 if not is_early_game:  # 只有在非游戏初期才考虑放置挡板
-                    # 1. 对手领先或即将到达终点
-                    if opponent_distance < my_distance or opponent_distance <= 5:
-                        should_place_wall = True
-                        print("决定放置挡板：对手领先或即将到达终点")
+                    # 计算游戏阶段
+                    is_mid_game = game_progress >= 4  # 游戏进行到中期
+                    is_late_game = game_progress >= 6  # 游戏进行到后期
                     
-                    # 2. 双方步数接近，且游戏进行到一定阶段
-                    elif distance_diff <= 2 and game_progress >= 3 and remaining_walls >= 2:
+                    # 1. 对手领先较多（3步以上）或即将到达终点
+                    if (opponent_distance < my_distance ) or (opponent_distance <= 5 and is_mid_game):
                         should_place_wall = True
-                        print("决定放置挡板：双方步数接近，且游戏已进行一定阶段")
+                        print("决定放置挡板：对手领先较多或即将到达终点")
                     
-                    # 3. 剩余挡板较多，且游戏进行到一定阶段
-                    elif remaining_walls >= 4 and game_progress >= 4:
+                    # 2. 游戏中期，双方步数接近，且剩余挡板充足
+                    elif is_mid_game and distance_diff <= 2 and remaining_walls >= 4:
                         should_place_wall = True
-                        print("决定放置挡板：剩余挡板较多，且游戏已进行一定阶段")
+                        print("决定放置挡板：游戏中期，双方步数接近")
                     
-                    # 4. 对手即将到达终点
-                    elif opponent_distance <= 4 and remaining_walls >= 2:
+                    # 3. 游戏后期，对手即将到达终点
+                    elif is_late_game and opponent_distance <= 6 and remaining_walls >= 0:
                         should_place_wall = True
-                        print("决定放置挡板：对手即将到达终点")
+                        print("决定放置挡板：游戏后期，对手即将到达终点")
                     
-                    # 5. 自己领先较多，且剩余挡板充足
-                    elif my_distance < opponent_distance - 2 and remaining_walls >= 3:
+                    # 4. 自己领先较多，且剩余挡板充足
+                    elif my_distance < opponent_distance - 3 and remaining_walls >= 4:
                         should_place_wall = True
                         print("决定放置挡板：自己领先较多，且剩余挡板充足")
+                    
+                    # 5. 确保不会过度使用挡板
+                    if should_place_wall and remaining_walls < 2:
+                        print("剩余挡板不足，优先移动棋子")
+                        should_place_wall = False
                 else:
-                    print("游戏初期，优先移动棋子")
+                    print(f"游戏初期（第{self.move_count + 1}步），优先移动棋子")
         print("是否放置挡板", should_place_wall)
 
         # 4. 如果决定放置挡板，寻找最佳挡板位置
         if should_place_wall:
             wall_move = self.find_best_wall_placement(state, player_color, opponent_pos)
             if wall_move:
+                self.move_count += 1
                 return wall_move
 
         # 5. 如果没有放置挡板，选择最佳移动
@@ -87,6 +94,9 @@ class Evaluator:
                 if score > best_score:
                     best_score = score
                     best_move = move
+        
+        if best_move:
+            self.move_count += 1
         return best_move
 
     def evaluate_move(self, state, move, player_color):
@@ -355,7 +365,7 @@ class Evaluator:
         
         # 计算放置挡板后的路径
         my_path_after = new_state.find_shortest_path(current_pos, target_row)
-        opponent_path_after = new_state.find_shortest_path(opponent_pos, opponent_target)
+        opponent_path_after = new_state.find_all_shortest_paths(opponent_pos, opponent_target)
         
         # 验证路径是否可达
         if not my_path_after or not opponent_path_after:
@@ -364,11 +374,11 @@ class Evaluator:
         
         # 计算路径长度变化
         my_path_increase = len(my_path_after) - len(my_path_before)
-        opponent_path_increase = len(opponent_path_after) - len(opponent_path_before)
+        opponent_path_increase = len(opponent_path_after[0]) - len(opponent_path_before)
         
         print(f"挡板 {wall} 放置后:")
         print(f"  我方路径长度: {len(my_path_before)} -> {len(my_path_after)} (增加 {my_path_increase})")
-        print(f"  对手路径长度: {len(opponent_path_before)} -> {len(opponent_path_after)} (增加 {opponent_path_increase})")
+        print(f"  对手路径长度: {len(opponent_path_before)} -> {len(opponent_path_after[0])} (增加 {opponent_path_increase})")
         
         # 基础分数计算
         score = opponent_path_increase * 5 - my_path_increase * 2
