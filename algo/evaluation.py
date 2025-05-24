@@ -5,6 +5,8 @@ class Evaluator:
     def __init__(self):
         self.directions = [(0, 1), (0, -1), (1, 0), (-1, 0)]  # 右、左、下、上
         self.move_count = 0  # 添加操作计数器
+        self.last_positions = []  # 记录最近的位置
+        self.max_history = 3  # 记录最近3步的位置
 
     def get_best_move(self, state, player_color):
         """获取最佳移动"""
@@ -18,6 +20,7 @@ class Evaluator:
         if my_path and len(my_path) == 2:
             print("只差一步到终点，直接前进", my_path[1])
             self.move_count += 1
+            self.update_position_history(current_pos)
             return {"type": "move_chess", "pos": str(my_path[1])}
 
         # 2. 获取所有可能的移动
@@ -51,7 +54,7 @@ class Evaluator:
                     is_late_game = game_progress >= 6  # 游戏进行到后期
                     
                     # 1. 对手领先较多（3步以上）或即将到达终点
-                    if (opponent_distance < my_distance ) or (opponent_distance <= 5 and is_mid_game):
+                    if (opponent_distance < my_distance) or (opponent_distance <= 5 and is_mid_game):
                         should_place_wall = True
                         print("决定放置挡板：对手领先较多或即将到达终点")
                     
@@ -70,7 +73,42 @@ class Evaluator:
                         should_place_wall = True
                         print("决定放置挡板：自己领先较多，且剩余挡板充足")
                     
-                    # 5. 确保不会过度使用挡板
+                    # 5. 检查是否有能显著增加路径差值的挡板位置
+                    if not should_place_wall and remaining_walls >= 2:
+                        wall_moves = state._generate_all_wall_candidates()
+                        for wall_move in wall_moves:
+                            try:
+                                block = eval(wall_move["block_position"])
+                                if not isinstance(block, tuple) or len(block) != 2:
+                                    continue
+                                    
+                                if not self.is_valid_wall_placement(block, state):
+                                    continue
+                                    
+                                new_state = state.apply_move({"type": "put_blocks", "block_position": str(block)})
+                                
+                                # 获取放置挡板后的最短路径
+                                my_path_after = new_state.find_shortest_path(current_pos, target_row)
+                                opponent_path_after = new_state.find_shortest_path(opponent_pos, opponent_target)
+                                
+                                if my_path_after and opponent_path_after:
+                                    my_distance_after = len(my_path_after) - 1
+                                    opponent_distance_after = len(opponent_path_after) - 1
+                                    
+                                    # 计算路径差值的变化
+                                    distance_diff_before = abs(my_distance - opponent_distance)
+                                    distance_diff_after = abs(my_distance_after - opponent_distance_after)
+                                    
+                                    # 如果路径差值显著增加（>=3）
+                                    if distance_diff_after - distance_diff_before >= 3:
+                                        should_place_wall = True
+                                        print(f"决定放置挡板：可以显著增加路径差值（{distance_diff_before} -> {distance_diff_after}）")
+                                        break
+                            except Exception as e:
+                                print(f"处理挡板时出错: {str(e)}")
+                                continue
+                    
+                    # 6. 确保不会过度使用挡板
                     if should_place_wall and remaining_walls < 2:
                         print("剩余挡板不足，优先移动棋子")
                         should_place_wall = False
@@ -83,6 +121,7 @@ class Evaluator:
             wall_move = self.find_best_wall_placement(state, player_color, opponent_pos)
             if wall_move:
                 self.move_count += 1
+                self.update_position_history(current_pos)
                 return wall_move
 
         # 5. 如果没有放置挡板，选择最佳移动
@@ -97,28 +136,44 @@ class Evaluator:
         
         if best_move:
             self.move_count += 1
+            self.update_position_history(current_pos)
         return best_move
 
+    def update_position_history(self, pos):
+        """更新位置历史"""
+        self.last_positions.append(pos)
+        if len(self.last_positions) > self.max_history:
+            self.last_positions.pop(0)
+
     def evaluate_move(self, state, move, player_color):
+        """评估移动的分数"""
         target_pos = eval(move["pos"])
         current_pos = tuple(state.state[f"{player_color}_pos"])
         opponent_color = "white" if player_color == "black" else "black"
         opponent_pos = tuple(state.state[f"{opponent_color}_pos"])
         target_row = 9 if player_color == "black" else 1
+
+        # 1. 基础距离评估
         distance_after = self.get_distance_to_target(state, target_pos, player_color)
         distance_before = self.get_distance_to_target(state, current_pos, player_color)
         score = (distance_before - distance_after) * 5
         if distance_after < distance_before:
             score += 3
+
+        # 2. 方向评估
         if (player_color == "black" and target_pos[0] > current_pos[0]) or \
            (player_color == "white" and target_pos[0] < current_pos[0]):
             score += 4
+
+        # 3. 与对手距离评估
         opponent_distance = abs(target_pos[0] - opponent_pos[0]) + abs(target_pos[1] - opponent_pos[1])
         if opponent_distance > 2:
             score += 2
+
         return score
 
     def get_distance_to_target(self, state, pos, player_color):
+        """获取到目标的距离"""
         target_row = 9 if player_color == "black" else 1
         path = state.find_shortest_path(pos, target_row)
         return len(path) - 1 if path else float('inf')
