@@ -21,7 +21,7 @@ class Evaluator:
             print("只差一步到终点，直接前进", my_path[1])
             self.move_count += 1
             self.update_position_history(current_pos)
-            return {"type": "move_chess", "pos": str(my_path[1])}
+            return {"type": "move_chess", "pos": str(my_path[1]), "move_again": "False"}
 
         # 2. 获取所有可能的移动
         moves = state.get_possible_moves()
@@ -122,6 +122,7 @@ class Evaluator:
             if wall_move:
                 self.move_count += 1
                 self.update_position_history(current_pos)
+                wall_move["move_again"] = "False"
                 return wall_move
 
         # 5. 如果没有放置挡板，选择最佳移动
@@ -137,6 +138,7 @@ class Evaluator:
         if best_move:
             self.move_count += 1
             self.update_position_history(current_pos)
+            best_move["move_again"] = "False"
         return best_move
 
     def update_position_history(self, pos):
@@ -152,6 +154,10 @@ class Evaluator:
         opponent_color = "white" if player_color == "black" else "black"
         opponent_pos = tuple(state.state[f"{opponent_color}_pos"])
         target_row = 9 if player_color == "black" else 1
+
+        # 检查移动是否有效
+        if not self.is_valid_move(state, current_pos, target_pos):
+            return float('-inf')
 
         # 1. 基础距离评估
         distance_after = self.get_distance_to_target(state, target_pos, player_color)
@@ -171,6 +177,43 @@ class Evaluator:
             score += 2
 
         return score
+
+    def is_valid_move(self, state, current_pos, target_pos):
+        """检查移动是否有效"""
+        # 检查是否在棋盘范围内
+        if not (1 <= target_pos[0] <= 9 and 1 <= target_pos[1] <= 9):
+            return False
+
+        # 检查是否是相邻格子
+        dx = abs(target_pos[0] - current_pos[0])
+        dy = abs(target_pos[1] - current_pos[1])
+        if dx + dy != 1:
+            return False
+
+        # 检查是否有挡板阻挡
+        all_blocks = state.state["black_blocks_pos"] + state.state["white_blocks_pos"]
+        for block in all_blocks:
+            if isinstance(block[0], int):
+                bx1, by1, bd1 = block
+                bx2, by2, bd2 = block
+            else:
+                (bx1, by1, bd1), (bx2, by2, bd2) = block
+
+            # 检查横向挡板
+            if bd1 == 1:  # 横向挡板
+                if current_pos[0] == target_pos[0] == bx1:
+                    if (current_pos[1] == by1 and target_pos[1] == by2) or \
+                       (current_pos[1] == by2 and target_pos[1] == by1):
+                        return False
+
+            # 检查纵向挡板
+            if bd1 == 0:  # 纵向挡板
+                if current_pos[1] == target_pos[1] == by1:
+                    if (current_pos[0] == bx1 and target_pos[0] == bx2) or \
+                       (current_pos[0] == bx2 and target_pos[0] == bx1):
+                        return False
+
+        return True
 
     def get_distance_to_target(self, state, pos, player_color):
         """获取到目标的距离"""

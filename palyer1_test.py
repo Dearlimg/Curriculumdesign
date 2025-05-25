@@ -35,7 +35,7 @@ def get_now_player_and_color(url):
 
 
 if __name__ == '__main__':
-    url = 'http://127.0.0.1:5100'
+    url = 'http://192.168.1.102:5071'
     userdata = {'name': '小李', 'pwd': '123456'}
 
     # 两个玩家的名字应该不同

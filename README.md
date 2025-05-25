@@ -1,5 +1,5 @@
-西安邮电大学,智能科学与技术人工智能课程设计,
-由"最一辈子乐队"队伍合力编写,
+西安邮电大学,智能科学与技术专业,人工智能课程设计,
+由"组一辈子乐队"队伍合力编写,
 
 这个课设的难度偏大,因为平台是一个BS架构的web项目,智能专业并未学习web开发课程,
 所以对于大部分同学来说都是比较难去理解和操作的,好在我和队伍中的另一个同学都是经过系统学习web开发,
@@ -32,7 +32,7 @@ The reason why we didn't use the four recommendation algorithms is that it is to
 Until the beginning of the 22nd session, the difficulty of this web platform increased dramatically.
 
 And then since we haven't learned python systematically, the python we write is not very standardized, because the syntax is not familiar,
-(There is also the syntax of this python that we are particularly disgusted with, too glue, QAQ), the overall architecture of the project is relatively simple,
+(There is also the syntax of this python that we are particularly disgusted with, to glue, QAQ), the overall architecture of the project is relatively simple,
 Anyone with OOP thinking can understand it.
                                             --Time:2025.5.25
                                             --Author:Durlim

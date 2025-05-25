@@ -16,6 +16,7 @@ class QuoridorClient:
         self.is_my_turn = False
         self.name = name
         self.userdata = {'name': name, 'pwd': password}
+        self.player_num = 0  # 添加玩家数量跟踪
 
     def join_game(self):
         """加入游戏"""
@@ -24,13 +25,41 @@ class QuoridorClient:
                 f"{self.server_url}/join_game",
                 data=self.userdata
             )
-            print(f"[{self.name}] 服务器响应: {response.text}")
+            response_text = response.text
+            print(f"[{self.name}] 服务器响应: {response_text}")
+            print(f"[{self.name}] 响应类型: {type(response_text)}")
+            print(f"[{self.name}] 响应长度: {len(response_text)}")
+            print(f"[{self.name}] 响应内容: {repr(response_text)}")
             
-            if "your color is" in response.text:
-                self.color = "black" if "black" in response.text else "white"
+            # 检查是否是重新加入的情况
+            if "welcome back" in response_text:
+                print(f"[{self.name}] 检测到重新加入")
+                # 从响应中提取颜色信息
+                if "your color is black" in response_text:
+                    self.color = "black"
+                    print(f"[{self.name}] 检测到黑色")
+                elif "your color is white" in response_text:
+                    self.color = "white"
+                    print(f"[{self.name}] 检测到白色")
+            # 检查是否是首次加入的情况
+            elif "welcome join" in response_text:
+                print(f"[{self.name}] 检测到首次加入")
+                # 从响应中提取颜色信息
+                if "your color is black" in response_text:
+                    self.color = "black"
+                    self.player_num = 1
+                    print(f"[{self.name}] 检测到黑色")
+                elif "your color is white" in response_text:
+                    self.color = "white"
+                    self.player_num = 2
+                    print(f"[{self.name}] 检测到白色")
+            
+            if self.color:
                 print(f"[{self.name}] 服务器分配的颜色: {self.color}")
+            else:
+                print(f"[{self.name}] 警告：未能解析到颜色信息")
             
-            return {"success": True, "message": response.text}
+            return {"success": True, "message": response_text}
         except requests.exceptions.RequestException as e:
             print(f"[{self.name}] 请求失败: {str(e)}")
             return {"success": False, "message": str(e)}
@@ -71,11 +100,15 @@ class QuoridorClient:
         try:
             response = requests.get(f"{self.server_url}/get_now_player_and_winner")
             data = response.json()
+            print(f"[{self.name}] 游戏状态数据: {data}")
+            winner = data["winner"]
+            winner_message = "未知" if winner == "unknown" else winner
             return {
                 "success": True,
                 "current_player": data["now_player"],
-                "game_over": bool(data["winner"]),
-                "message": f"胜利者是: {data['winner']}" if data["winner"] else None
+                "game_over": winner and winner != "unknown",
+                "message": f"胜利者是: {winner_message}" if winner else None,
+                "playing": data.get("playing", "False") == "True"  # 添加playing字段
             }
         except (requests.exceptions.RequestException, json.JSONDecodeError) as e:
             print(f"[{self.name}] 获取游戏状态失败: {str(e)}")
@@ -144,7 +177,13 @@ class QuoridorClient:
                 # 检查对手是否已经加入
                 opponent_color = "white" if self.color == "black" else "black"
                 opponent_pos = board.get(f"{opponent_color}_pos")
-                if opponent_pos:
+                current_player = status.get("current_player")
+                is_playing = status.get("playing", False)
+                
+                print(f"[{self.name}] 当前玩家: {current_player}, 我的名字: {self.name}, 游戏开始: {is_playing}")
+                
+                # 检查是否双方都已加入
+                if is_playing:
                     opponent_joined = True
                     print(f"[{self.name}] 对手已加入游戏，开始游戏！")
                 else:
