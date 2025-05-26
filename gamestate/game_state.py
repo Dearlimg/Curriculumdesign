@@ -205,7 +205,8 @@ class GameState:
             current, path = queue.popleft()
             if current[0] == target_row:
                 return path
-            for dx, dy in [(0,1),(0,-1),(1,0),(-1,0)]:
+            for dx, dy in [(0,-1),(0,1),(1,0),(-1,0)]:
+            # for dx, dy in [(0,1),(0,-1),(1,0),(-1,0)]:
                 new_pos = (current[0]+dx, current[1]+dy)
                 if self._is_valid_position(new_pos) and new_pos not in visited and not self._is_blocked(current, new_pos):
                     visited.add(new_pos)

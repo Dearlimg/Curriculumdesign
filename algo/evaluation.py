@@ -21,15 +21,36 @@ class Evaluator:
             print("只差一步到终点，直接前进", my_path[1])
             self.move_count += 1
             self.update_position_history(current_pos)
-            return {"type": "move_chess", "pos": str(my_path[1]), "move_again": "False"}
+            # 检查目标位置是否是对方棋子位置
+            move_again = "True" if my_path[1] == opponent_pos else "False"
+            return {"type": "move_chess", "pos": str(my_path[1]), "move_again": move_again}
 
-        # 2. 获取所有可能的移动
+        # 2. 检查是否可以跳跃对手
+        # 计算当前位置到对手位置的方向
+        dx = opponent_pos[0] - current_pos[0]
+        dy = opponent_pos[1] - current_pos[1]
+        
+        # 如果对手在正前方（对于黑棋是上方，对于白棋是下方）
+        if (player_color == "black" and dx == 1 and dy == 0) or \
+           (player_color == "white" and dx == -1 and dy == 0):
+            # 计算跳跃后的位置
+            jump_pos = (opponent_pos[0] + dx, opponent_pos[1])
+            # 检查跳跃位置是否在棋盘范围内
+            if 1 <= jump_pos[0] <= 9 and 1 <= jump_pos[1] <= 9:
+                # 检查跳跃位置是否有挡板阻挡
+                if self.is_valid_move(state, opponent_pos, jump_pos):
+                    print("可以跳跃对手到位置", jump_pos)
+                    self.move_count += 1
+                    self.update_position_history(current_pos)
+                    return {"type": "move_chess", "pos": str(jump_pos), "move_again": "True"}
+
+        # 3. 获取所有可能的移动
         moves = state.get_possible_moves()
         if not moves:
             return None
         print("所有可能的尝试", moves)
 
-        # 3. 评估是否需要放置挡板
+        # 4. 评估是否需要放置挡板
         should_place_wall = False
         remaining_walls = 10 - state.state.get(f"{player_color}_blocks_num", 0)
         if remaining_walls > 0:
@@ -109,7 +130,7 @@ class Evaluator:
                                 continue
                     
                     # 6. 确保不会过度使用挡板
-                    if should_place_wall and remaining_walls < 2:
+                    if should_place_wall and remaining_walls < 1:
                         print("剩余挡板不足，优先移动棋子")
                         should_place_wall = False
                 else:
@@ -138,7 +159,9 @@ class Evaluator:
         if best_move:
             self.move_count += 1
             self.update_position_history(current_pos)
-            best_move["move_again"] = "False"
+            # 检查目标位置是否是对方棋子位置
+            target_pos = eval(best_move["pos"])
+            best_move["move_again"] = "True" if target_pos == opponent_pos else "False"
         return best_move
 
     def update_position_history(self, pos):

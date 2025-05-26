@@ -1,6 +1,8 @@
 import requests
 import json
 
+from pyparsing import White
+
 
 def join_game(url, userdata):
     url = url + '/join_game'
@@ -38,7 +40,9 @@ if __name__ == '__main__':
     url = 'http://127.0.0.1:5100'
     userdata = {'name': '小明', 'pwd': '123456'}
 
+    count=0
     # 两个玩家的名字应该不同
+
     join_game(url, userdata)
 
     # 获取游戏是否进行中，当前玩家的姓名和颜色信息
@@ -46,11 +50,12 @@ if __name__ == '__main__':
 
     # 获得棋盘信息
     chessboard = get_chessboard(url)
-
-    chessdata = {'type': 'move_chess', 'pos': '(8,5)', 'move_again': 'False'}
+    if count==0:
+        chessdata = {'type': 'move_chess', 'pos': '(2,5)', 'move_again': 'False'}
     # # 当type为move_chess时，进行移动棋子操作
     # # 当且仅当移动的目的位置是对方棋子位置，可以再次移动，move_again为True，否则为False
     # # pos为最终的棋子位置
     # chessdata = {'type': 'put_blocks', 'block_position': '((1, 2, 1), (1, 3, 1))'}
     # # 当type为put_blocks时，在block_position中填入两格挡板的位置，挡板只能是横放或竖放，占据1*2或2*1格,最后一个1表示横向的挡板，纵向挡板为0
+
     play_chess(url, userdata, chessdata)
