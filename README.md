@@ -1,41 +1,107 @@
-西安邮电大学,智能科学与技术专业,人工智能课程设计,
-由"组一辈子乐队"队伍合力编写,
 
-这个课设的难度偏大,因为平台是一个BS架构的web项目,智能专业并未学习web开发课程,
-所以对于大部分同学来说都是比较难去理解和操作的,好在我和队伍中的另一个同学都是经过系统学习web开发,
-我主Golang,他主Java,有web项目基础,所以编写对我们来说很简单.
+---
 
-这个项目的实现思想很简单,我愿叫为朴素算法--单纯使用bfs去搜索最短路径,
-然后在这个的基础上进行优化,加入了一些简单的逻辑判断,以及一些自己的想法.
+# 西安邮电大学 · 智能科学与技术专业
+## 人工智能课程设计
+**项目团队：** “组一辈子乐队”（The Last Life Band）
 
-我们没有采用那四个推荐算法的原因是实现难度过大,以往的智能课设都是单纯的bfs,dfs,A*.
-直到22届开始这个web平台的课设,难度陡增.
+---
 
-然后由于我们没有系统学习过python,所以编写的python不是很规范,因为语法不熟悉,
-(还有就是这个python的语法我们特反感,太胶水了,QAQ),项目整体架构比较简单,
-具有OOP思想的都能看懂.
+### 项目背景与难度说明
 
-我们这一版课设有点问题,就看后来的学弟学妹修改了TAT.....
-                                            --Time:2025.5.25
-                                            --Author:Durlim
-                                            --Email:1492568061@qq.com
+本课程设计基于一个 **B/S 架构的 Web 平台**，对智能科学与技术专业的同学而言具有一定挑战性——由于专业课程体系中未系统开设 Web 开发相关课程，大多数同学在理解和实现上会感到困难。
+
+幸运的是，我们团队中有两位成员具备扎实的 Web 开发基础：
+- 我（Durlim）主攻 **Golang**，
+- 另一位队友主攻 **Java**。
+
+因此，尽管平台架构较新，对我们而言开发过程相对顺利。
+
+---
+
+### 算法设计思路
+
+本项目的核心算法采用了一种我们称之为 **“朴素算法”** 的策略：
+> **以 BFS（广度优先搜索）为基础，寻找最短路径，并在此之上加入若干简单逻辑判断与个性化优化。**
+
+我们**未采用课程推荐的四种高级算法**，主要原因是其实现复杂度较高。回顾往届（22 届以前）的人工智能课设，普遍仍以 BFS、DFS、A* 等基础搜索算法为主。自 22 届起，课设引入 Web 平台后，整体难度显著提升。
+
+---
+
+### 关于代码与语言
+
+- 本项目部分模块使用 **Python** 编写，但由于我们**未系统学习过 Python**，代码在语法规范性和风格上可能存在不足。
+- 坦白讲，我们对 Python 的“胶水语言”特性有些“又爱又恨” 😣（QAQ），尤其在不熟悉其惯用法时容易写出不够地道的代码。
+- 尽管如此，项目整体架构清晰简洁，**具备面向对象编程（OOP）思维的同学应能轻松理解**。
+
+---
+
+### 致后来者
+
+当前版本存在一些已知问题，期待后续的学弟学妹们能够在此基础上持续改进和完善 💪！
+
+---
+
+**最后更新时间：** 2025年5月25日  
+**作者：** Durlim  
+**邮箱：** 1492568061@qq.com
+
+---  
+
+> *“组一辈子乐队”出品，虽不完美，但倾注心血。* 🎸
+
+---
 
 
-Xi'an University of Posts and Telecommunications, Artificial Intelligence Curriculum Design for Intelligent Science and Technology,
-Written by the team of "The Last Life Band",
-The difficulty of this course is on the high side, because the platform is a BS architecture web project, and the intelligence major does not study web development courses.
-Therefore, it is difficult for most students to understand and operate, but fortunately, I and another student in the team have learned web development through the system.
-I'm Golang, he's Java, and I have a web project base, so it's very easy for us to write.
+---
 
-The idea of this project is very simple, I would like to call it a naïve algorithm - simply use BFS to search for the shortest path.
-Then optimize on the basis of this, add some simple logical judgments, and some own ideas.
+# Xi’an University of Posts and Telecommunications
+## Artificial Intelligence Course Project – Intelligent Science and Technology Major
+**Team:** “The Last Life Band” (a.k.a. “Zu Yi Bei Zi Yue Dui”)
 
-The reason why we didn't use the four recommendation algorithms is that it is too difficult to implement, and the previous intelligent courses are simple bfs, dfs, and A*.
-Until the beginning of the 22nd session, the difficulty of this web platform increased dramatically.
+---
 
-And then since we haven't learned python systematically, the python we write is not very standardized, because the syntax is not familiar,
-(There is also the syntax of this python that we are particularly disgusted with, to glue, QAQ), the overall architecture of the project is relatively simple,
-Anyone with OOP thinking can understand it.
-                                            --Time:2025.5.25
-                                            --Author:Durlim
-                                            --Email:1492568061@qq.com
+### Project Context & Difficulty
+
+This course project is built on a **B/S (Browser/Server) web platform**, which presents a significant challenge for students majoring in Intelligent Science and Technology—**web development is not part of our core curriculum**, making it difficult for most classmates to grasp and implement.
+
+Fortunately, two members of our team have solid web development experience:
+- I (Durlim) specialize in **Golang**,
+- My teammate specializes in **Java**.
+
+Thanks to this background, we found the implementation process relatively straightforward despite the platform’s novelty.
+
+---
+
+### Algorithm Design Philosophy
+
+Our solution follows what we affectionately call the **“Naïve Algorithm”**:
+> **Start with a basic BFS (Breadth-First Search) to find the shortest path, then layer on simple logical optimizations and personal tweaks.**
+
+We **deliberately avoided the four recommended advanced algorithms** due to their high implementation complexity. Historically, AI course projects (prior to the Class of 2022) typically used only fundamental search strategies like BFS, DFS, or A*. The introduction of the web-based platform starting with the Class of 2022 marked a sharp increase in overall difficulty.
+
+---
+
+### On Code & Language Choice
+
+- Some modules are written in **Python**, but since **neither of us has formally studied Python**, the code may lack idiomatic style or best practices.
+- Honestly? We’re a bit *frustrated* by Python’s “glue-language” nature 😣 (QAQ)—especially when unfamiliar syntax leads to awkward implementations.
+- That said, the **overall architecture is simple and clean**, and anyone familiar with **object-oriented programming (OOP)** should be able to understand the logic without trouble.
+
+---
+
+### A Note to Future Students
+
+This version contains known issues—we sincerely hope that future students will build upon our work and improve it further! 💪
+
+---
+
+**Last Updated:** May 25, 2025  
+**Author:** Durlim  
+**Email:** 1492568061@qq.com
+
+---  
+
+> *Crafted with care by “The Last Life Band”—imperfect, but made with heart.* 🎸
+
+---
